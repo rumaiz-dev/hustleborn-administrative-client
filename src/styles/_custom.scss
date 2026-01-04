@@ -1,0 +1,42 @@
+// Here you can add other styles
+.animated-icon-btn {
+    position: relative;
+    background-color: transparent;
+    border: none;
+    padding: 10px;
+    transition: all 0.3s ease; // Smooth transition for all properties
+    
+    .icon-dark {
+      transition: transform 0.3s ease, color 0.3s ease; // Smooth transitions for transform and color
+      animation: continuousAnimation 3s infinite ease-in-out; // Continuous animation on loop
+  
+      // Set the color to black at all times (even during animation)
+      color: black;
+    }
+  
+    // Continuous animation - scales and rotates the icon
+    @keyframes continuousAnimation {
+      0% {
+        transform: rotate(0deg) scale(1);
+      }
+      25% {
+        transform: rotate(15deg) scale(1.1);
+      }
+      50% {
+        transform: rotate(0deg) scale(1);
+      }
+      75% {
+        transform: rotate(-15deg) scale(1.1);
+      }
+      100% {
+        transform: rotate(0deg) scale(1);
+      }
+    }
+  
+    // Hover state to stop animation (but keep color black)
+    &:hover .icon-dark {
+      animation: none; // Stop the animation on hover
+      color: black; // Keep the color black on hover (no change)
+    }
+  }
+  

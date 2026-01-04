@@ -1,0 +1,25 @@
+.checkbox-container {
+    cursor: pointer;
+}
+
+.checkbox-input {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.checkbox-black {
+    accent-color: #000000;
+    color: #000000;
+}
+
+.checkbox-blue {
+    accent-color: #0a3d62;
+    color: #0a3d62;
+}
+
+.checkbox-label {
+    cursor: pointer;
+    user-select: none;
+    margin-bottom: 0;
+}

@@ -1,0 +1,31 @@
+/* Apply font size to all input fields globally */
+input,
+textarea,
+select,
+label {
+  font-size: 12px !important;
+  /* Set your preferred font size */
+}
+
+/* label{
+      color: black;
+  } */
+
+/* CustomButton.css */
+.btn-filter {
+  background-color: white;
+  color: black;
+  border: 1px solid black;
+  padding: 6px 6px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.view-btn {
+  background-color: 'white';
+  border: 1px solid black;
+  color: black;
+  padding: 6px 6px;
+  font-size: 12px;
+  line-height: 1;
+}
