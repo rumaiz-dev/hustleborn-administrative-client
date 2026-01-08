@@ -8,7 +8,6 @@ import {
 import { cilSettings } from '@coreui/icons'
 import { useDispatch } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
-import { logout } from '../../api/authRequests'
 import Cookies from 'js-cookie'
 import { persistor } from '../../store'
 import CIcon from '@coreui/icons-react'

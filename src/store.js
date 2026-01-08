@@ -1,6 +1,8 @@
 import { legacy_createStore as createStore } from 'redux'
 import { persistStore, persistReducer } from 'redux-persist'
-import sessionStorage from 'redux-persist/lib/storage/session'
+import createWebStorage from 'redux-persist/lib/storage/createWebStorage'
+
+const storage = createWebStorage('session')
 
 const initialState = {
     sidebarShow: true,
@@ -10,6 +12,7 @@ const initialState = {
     userId: null,
     accountId: null,
     username: null,
+    token: null,
 }
 
 const changeState = (state = initialState, { type, ...rest }) => {
@@ -17,9 +20,9 @@ const changeState = (state = initialState, { type, ...rest }) => {
         case 'set':
             return { ...state, ...rest }
         case 'login':
-            return { ...state, isAuthenticated: true }
+            return { ...state, isAuthenticated: true, token: rest.token }
         case 'logout':
-            return { ...state, isAuthenticated: false, permissions: [], userId: null, accountId: null, username: null }
+            return { ...state, isAuthenticated: false, permissions: [], userId: null, accountId: null, username: null, token: null }
         case 'set_permissions':
             return {
                 ...state,
@@ -34,8 +37,8 @@ const changeState = (state = initialState, { type, ...rest }) => {
 // Redux Persist configuration
 const persistConfig = {
     key: 'root',
-    storage: sessionStorage,
-    whitelist: ['isAuthenticated', 'permissions', 'userId', 'accountId', 'username'], // Only persist specific keys if desired
+    storage,
+    whitelist: ['isAuthenticated', 'permissions', 'userId', 'accountId', 'username', 'token'], // Only persist specific keys if desired
 
 }
 

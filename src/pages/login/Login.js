@@ -15,7 +15,8 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilLockLocked, cilUser } from '@coreui/icons'
 import { useDispatch, useSelector } from 'react-redux'
-import { login, fetchUserPermissions, logout, checkLoginStatus } from '../../api/authRequests'
+import { login, fetchUserPermissions } from '../../api/authRequests'
+import { jwtDecode } from 'jwt-decode'
 
 const Login = () => {
     const dispatch = useDispatch()
@@ -29,22 +30,21 @@ const Login = () => {
     const handleLogin = async (e) => {
         e.preventDefault()
         setError('')
-        await logout()
         try {
-            const token = await login(username, password)
-            const authData = await checkLoginStatus();
-            console.log("Auth Data:", authData);
+            const response = await login(username, password)
+            const { token } = response;
+            localStorage.setItem('token', token);
+            const decoded = jwtDecode(token);
             dispatch({
                 type: 'set',
-                userId: authData.id,
-                accountId: authData.accountId,
-                username: authData.username,
+                userId: decoded.userId,
+                accountId: decoded.accountId,
+                username: decoded.username,
             })
-
+            dispatch({ type: 'login', token })
             await fetchUserPermissions('Default')
                 .then((permissions) => {
                     dispatch({ type: 'set_permissions', permissions })
-                    dispatch({ type: 'login', token })
                 })
                 .catch((error) => {
                     console.error('Failed to fetch permissions:', error)

@@ -5,7 +5,7 @@ import { CSpinner } from "@coreui/react";
 import TitleUpdater from "./components/TitleUpdater";
 import "./styles/style.scss";
 import './styles/custom.css'
-import { checkLoginStatus, fetchUserPermissions } from "./api/authRequests";
+import { fetchUserPermissions } from "./api/authRequests";
 
 const DefaultLayout = React.lazy(() => import("./layout/DefaultLayout"));
 const Login = React.lazy(() => import("./pages/login/Login"));
@@ -16,20 +16,32 @@ const App = () => {
   const dispatch = useDispatch();
   useEffect(() => {
     const verifyAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        dispatch({ type: "logout" });
+        return;
+      }
       try {
-        const authData = await checkLoginStatus();
-        console.log("Auth Data:", authData);
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        const currentTime = Math.floor(Date.now() / 1000);
+        if (payload.exp < currentTime) {
+          localStorage.clear();
+          window.location.href = '/login';
+          return;
+        }
         dispatch({
           type: 'set',
-          userId: authData.id,
-          accountId: authData.accountId,
-          username: authData.username,
-        })
-        const permissions = await fetchUserPermissions('Default')
-        dispatch({ type: 'set_permissions', permissions })
-        dispatch({ type: 'login' })
+          userId: payload.userId,
+          username: payload.username,
+          accountId: payload.accountId,
+        });
+        dispatch({ type: 'login', token });
+        const permissions = await fetchUserPermissions('Default');
+        dispatch({ type: 'set_permissions', permissions });
       } catch (err) {
-        dispatch({ type: "logout" });
+        console.error('Token decode error:', err);
+        localStorage.clear();
+        window.location.href = '/login';
       }
     };
     verifyAuth();
