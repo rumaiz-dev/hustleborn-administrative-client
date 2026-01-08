@@ -1,21 +1,11 @@
 import { useState, useEffect } from "react";
-import { getMainCategories } from "../../api/categoryRequests";
+import { getCategories } from "../../api/categoryRequests";
 import RichTextField from "../../components/textEditor/RichText";
-import axios from "axios";
-import { v4 as uuidv4 } from "uuid";
-import { createProduct, checkIfCodeExists } from "../../api/productRequests";
+import { createProduct, checkCode } from "../../api/productRequests";
 import { Tooltip } from "react-tooltip";
 import { CheckBox } from "../../components/multiselectcheckbox";
-import { facebookCategories } from "../../constants/facebookCategories";
-import { toast, ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
-
-
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
-const MAX_IMAGES = 6;
-const MIN_IMAGES = 1;
-const MAX_SIZE_BYTES = 200 * 1024;
-const MAX_DIMENSION = 300;
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const CreateProduct = () => {
   const [categories, setCategories] = useState([]);
@@ -32,7 +22,6 @@ const CreateProduct = () => {
     stockQty: "",
     productType: "",
     productStatus: "",
-    facebookCategory: "",
     weight: "",
     warranty: "",
     category: [],
@@ -45,14 +34,12 @@ const CreateProduct = () => {
       length: "",
     },
   });
-  const [images, setImages] = useState([]);
   const [attributes, setAttributes] = useState([]);
   const [attribute, setAttribute] = useState({
     keyName: "",
     value: "",
     position: "",
   });
-  const [webpCover, setWebpCover] = useState(null);
 
   const handleAttributeChange = (e) => {
     const { name, value } = e.target;
@@ -71,23 +58,28 @@ const CreateProduct = () => {
   useEffect(() => {
     const fetchAllCategoriesAndSubcategories = async () => {
       try {
-        const categoryData = await getMainCategories();
+        const categoryData = await getCategories();
         const categories = categoryData;
-        const mainCategories = categories.filter(cat => cat.parent === cat.id);
+        const mainCategories = categories
+          .filter((cat) => cat.parent === null)
+          .sort((a, b) => a.name.localeCompare(b.name));
         const subCategoryMap = {};
-        mainCategories.forEach(main => {
+        mainCategories.forEach((main) => {
           subCategoryMap[main.id] = [];
         });
 
-        categories.forEach(cat => {
-          if (cat.parent !== cat.id && subCategoryMap[cat.parent]) {
+        categories.forEach((cat) => {
+          if (cat.parent !== null && subCategoryMap[cat.parent]) {
             subCategoryMap[cat.parent].push(cat);
           }
+        });
+        // Sort subcategories alphabetically
+        Object.keys(subCategoryMap).forEach((mainId) => {
+          subCategoryMap[mainId].sort((a, b) => a.name.localeCompare(b.name));
         });
 
         setCategories(mainCategories);
         setSubCategoryData(subCategoryMap);
-
       } catch (error) {
         console.error("Error fetching categories or subcategories:", error);
         alert("Failed to fetch categories or subcategories.");
@@ -96,7 +88,6 @@ const CreateProduct = () => {
 
     fetchAllCategoriesAndSubcategories();
   }, []);
-
 
   const handleCategoryChange = (categoryId) => {
     setForm((prevForm) => {
@@ -109,17 +100,16 @@ const CreateProduct = () => {
 
         if (subCategoryData[categoryId]) {
           const subCategoryIdsToRemove = subCategoryData[categoryId].map(
-            (subcat) => subcat.id
+            (subcat) => subcat.id,
           );
 
           updatedSubCategories = updatedSubCategories.filter(
-            (subId) => !subCategoryIdsToRemove.includes(subId)
+            (subId) => !subCategoryIdsToRemove.includes(subId),
           );
         }
       } else {
         updatedCategories = [...prevForm.category, categoryId];
       }
-
 
       return {
         ...prevForm,
@@ -142,14 +132,6 @@ const CreateProduct = () => {
     });
   };
 
-
-  const makeCover = (idx) => {
-    if (idx === 0) return;
-    setImages((imgs) => {
-      const chosen = imgs[idx];
-      return [chosen, ...imgs.filter((_, i) => i !== idx)];
-    });
-  };
   const makeSlug = (text) =>
     text
       .toLowerCase()
@@ -190,174 +172,41 @@ const CreateProduct = () => {
     setForm((f) => ({ ...f, shortDesc: html }));
   };
 
-  const handleFiles = (e) => {
-    const files = Array.from(e.target.files);
-    const newImages = [...images];
-
-    for (let file of files) {
-      if (newImages.length >= MAX_IMAGES) {
-        alert(`You can only upload up to ${MAX_IMAGES} images.`);
-        break;
-      }
-      if (file.size > MAX_SIZE_BYTES) {
-        alert(`${file.name}: exceeds 200 KB.`);
-        continue;
-      }
-      const img = new Image();
-      img.src = URL.createObjectURL(file);
-      img.onload = () => {
-        if (img.width > MAX_DIMENSION || img.height > MAX_DIMENSION) {
-          alert(
-            `${file.name}: dimensions ${img.width}×${img.height} exceed 300×300 px.`
-          );
-        } else {
-          newImages.push({
-            file,
-            preview: img.src,
-            width: img.width,
-            height: img.height,
-          });
-          setImages(newImages);
-        }
-      };
-    }
-    e.target.value = null;
-  };
-
-  const handleWebpFile = (e) => {
-    const file = e.target.files[0];
-
-    if (!file) return;
-
-    if (!file.name.toLowerCase().endsWith(".webp")) {
-      alert("Please upload only webp images");
-      e.target.value = null;
-      return;
-    }
-
-    if (file.size > 60 * 1024) {
-      alert(`${file.name} exceeds 60KB limit`);
-      e.target.value = null;
-      return;
-    }
-    const img = new Image();
-    img.src = URL.createObjectURL(file);
-
-    img.onload = () => {
-      if (img.width > MAX_DIMENSION || img.height > MAX_DIMENSION) {
-        alert(
-          `${file.name}: dimensions ${img.width}×${img.height} exceed 300×300 px.`
-        );
-      } else {
-        setWebpCover({
-          file,
-          preview: img.src,
-          width: img.width,
-          height: img.height,
-        });
-      }
-    };
-    e.target.value = null;
-  };
-
-  const removeImage = (idx) => {
-    setImages((imgs) => imgs.filter((_, i) => i !== idx));
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (images.length < MIN_IMAGES || images.length > MAX_IMAGES) {
-      alert(`Please upload between ${MIN_IMAGES} and ${MAX_IMAGES} images.`);
-      return;
-    }
-
-    if (!webpCover) {
-      alert("Please upload a WebP cover image before submitting.");
-      return;
-    }
 
     try {
-      const uploadPromises = images.map(({ file }) => {
-        const fd = new FormData();
-        const ext = file.name.split(".").pop();
-        const keyName = `${uuidv4()}.${ext}`;
-        fd.append("uploadFile", file);
-        return axios
-          .post(
-            `${backendUrl}/public/v2/bigmall/objects/upload/file?folderName=product-images&keyName=${keyName}`,
-            fd,
-            { headers: { "Content-Type": "multipart/form-data" } }
-          )
-          .then((res) => keyName);
-      });
-
-      const uploadedKeys = await Promise.all(uploadPromises);
-      const firstImageKey = uploadedKeys.length > 0 ? uploadedKeys[0] : null;
-      const webpKeyName = await handleUploadWebp(firstImageKey);
-      if (!webpKeyName) return;
-
       const dimensionsObject = {
         height: form.dimensions.height || "0",
         width: form.dimensions.width || "0",
         length: form.dimensions.length || "0",
+        weight: form.weight,
       };
 
-      const productDto = {
+      const payload = {
         name: form.name,
         description: form.description,
-        type: form.productType,
-        status: form.productStatus,
-        sku: form.sku,
+        slug: form.slug,
         code: form.code,
-        on_sale: false,
-        stock_quantity: parseInt(form.stockQty, 10),
-        manage_stock: true,
-        regular_price: form.regularPrice,
-        sale_price: form.salePrice,
-        short_description: form.shortDesc,
-        stock_status: form.stockStatus,
-        slug: form.slug,
-        purchasable: true,
-        weight: form.weight,
-        images: uploadedKeys.map((key) => ({ src: key })),
-        categories: form.subCategories.map(id => ({ id })),
-        mainImage: webpKeyName,
-        dimensions: dimensionsObject,
-        purchasingPrice: form.purchasePrice,
-      };
-
-      const productDetailDto = {
-        description: form.description,
-        type: form.productType,
-        status: form.productStatus,
-        on_sale: false,
-        stock_quantity: parseInt(form.stockQty, 10),
-        regular_price: form.regularPrice,
-        short_description: form.shortDesc,
-        facebook_category: form.facebookCategory,
-        sale_price: form.salePrice,
-        stock_status: form.stockStatus,
-        slug: form.slug,
-        purchasable: true,
-        productName: form.name,
-        productSku: form.sku,
-        productImages: uploadedKeys.map((key, idx) => [key, String(idx)]),
-        weight: form.weight,
-        warranty: form.warranty,
+        price: parseFloat(form.regularPrice),
+        purchasingPrice: parseFloat(form.purchasePrice),
+        salePrice: parseFloat(form.salePrice),
+        stockQuantity: parseInt(form.stockQty, 10),
+        stockStatus:
+          form.stockStatus === "instock" ? "in_stock" : "out_of_stock",
+        status: form.productStatus === "publish" ? "ACTIVE" : "DRAFT",
+        variant: form.productType === "variable",
         attributes: attributes.reduce((m, attr) => {
-          m[attr.keyName.toLowerCase().replace(/\s+/g, "-")] = {
-            slug: attr.keyName.toLowerCase().replace(/\s+/g, "-"),
-            options: attr.value.split(","),
-            position: parseInt(attr.position || "0", 10),
-            visible: true,
-            variation: true,
-          };
+          m[attr.keyName] = attr.value.split(",");
           return m;
         }, {}),
+        dimensions: dimensionsObject,
+        productType: form.productType === "simple" ? "Simple" : "Variable",
+        productCategories: form.subCategories.map((id) => ({ id })),
+        parentId: null,
       };
 
-      const code = productDto.code;
-      const response = await checkIfCodeExists(code);
+      const response = await checkCode(form.code);
 
       const message = response.message;
       const duplicates = response.object || [];
@@ -369,13 +218,11 @@ const CreateProduct = () => {
         });
         return;
       }
-
-      const payload = { productDto, productDetailDto };
       console.log("Final payload:", payload);
 
       const createResponse = await createProduct(payload);
       console.log("Product created : ", createResponse);
-      setForm(form => ({
+      setForm((form) => ({
         ...form,
         name: "",
         slug: "",
@@ -400,8 +247,9 @@ const CreateProduct = () => {
           width: "",
           length: "",
         },
+        parentId: null,
+        variant: false,
       }));
-      setImages([]);
       setAttributes([]);
       setAttribute({ keyName: "", value: "", position: "" });
       setSubCategoryData({});
@@ -409,37 +257,6 @@ const CreateProduct = () => {
       toast.success("Product created successfully!");
     } catch (err) {
       toast.error("Failed to create product: " + err.message);
-    }
-  };
-
-  const handleUploadWebp = async (firstImageKey = null) => {
-    if (!webpCover || !webpCover.file) {
-      alert("Please select a WebP cover image first.");
-      return null;
-    }
-    try {
-      const fd = new FormData();
-      let keyName;
-      if (firstImageKey) {
-        const baseName = firstImageKey.split(".")[0];
-        keyName = `${baseName}.webp`;
-      } else {
-        const ext = webpCover.file.name.split(".").pop();
-        keyName = `${uuidv4()}.${ext}`;
-      }
-      fd.append("uploadFile", webpCover.file);
-      const res = await axios.post(
-        `${backendUrl}/public/v2/bigmall/objects/upload/webp?folderName=product-images-webp&keyName=${keyName}`,
-        fd,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
-      toast.success("WebP cover image uploaded successfully !");
-      setWebpCover(null);
-      console.log("WebP cover image uploaded : ", keyName);
-      return keyName;
-    } catch (err) {
-      toast.error("Failed to upload WebP cover image : " + err.message);
-      return null;
     }
   };
 
@@ -520,12 +337,10 @@ const CreateProduct = () => {
                               id={`subcategory-${subcategory.id}`}
                               label={subcategory.name}
                               checked={form.subCategories.includes(
-                                subcategory.id
+                                subcategory.id,
                               )}
                               onChange={() =>
-                                handleSubcategoryChange(
-                                  subcategory.id
-                                )
+                                handleSubcategoryChange(subcategory.id)
                               }
                               color="primary"
                             />
@@ -537,27 +352,6 @@ const CreateProduct = () => {
               ))}
             </div>
           </div>
-        </div>
-
-        <div className="mb-3 col-md-3">
-          <label htmlFor="facebookCategory" className="form-label">
-            Facebook category
-          </label>
-          <select
-            id="facebookCategory"
-            name="facebookCategory"
-            className="form-select"
-            value={form.facebookCategory}
-            onChange={handleChange}
-            required
-          >
-            <option value="">Choose...</option>
-            {facebookCategories.map((category, index) => (
-              <option key={index} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
         </div>
 
         <div className="row mb-3">
@@ -693,7 +487,6 @@ const CreateProduct = () => {
               required
             />
           </div>
-
 
           <div className="mb-3 col-md-2">
             <label htmlFor="code" className="form-label">
@@ -880,120 +673,8 @@ const CreateProduct = () => {
         )}
         <hr />
 
-        <div className="mb-4">
-          <label htmlFor="webpUpload" className="form-label">
-            Upload webp cover image
-          </label>
-          <input
-            id="webpUpload"
-            type="file"
-            accept="image/webp"
-            className="form-control"
-            onChange={handleWebpFile}
-          />
-        </div>
-
-        {webpCover && (
-          <div className="text-center mt-3">
-            <div className="position-relative d-inline-block">
-              <img
-                src={webpCover.preview}
-                alt="WebP Cover"
-                className="img-thumbnail"
-                style={{
-                  maxWidth: "200px",
-                  border: "2px solid #007bff",
-                }}
-              />
-              <span className="badge bg-primary position-absolute top-0 start-0">
-                Cover
-              </span>
-              <button
-                type="button"
-                className="btn btn-sm btn-danger position-absolute top-0 end-0"
-                onClick={() => setWebpCover(null)}
-              >
-                &times;
-              </button>
-            </div>
-            <small className="text-muted d-block mt-2">
-              {webpCover.width}×{webpCover.height}px,{" "}
-              {(webpCover.file.size / 1024).toFixed(1)} KB
-            </small>
-          </div>
-        )}
-
-        <div className="mb-3">
-          <label htmlFor="imageUpload" className="form-label">
-            Upload between {MIN_IMAGES} to {MAX_IMAGES} images
-          </label>
-          <input
-            id="imageUpload"
-            type="file"
-            accept="image/*"
-            multiple
-            className="form-control"
-            onChange={handleFiles}
-          />
-        </div>
-
-        <div className="row mb-3">
-          {images.map((imgObj, idx) => (
-            <div key={idx} className="col-6 col-md-3 text-center mb-3">
-              <div className="position-relative">
-                <img
-                  src={imgObj.preview}
-                  alt={`Preview ${idx + 1}`}
-                  className="img-thumbnail"
-                  style={{
-                    maxWidth: "100%",
-                    height: "auto",
-                    border: idx === 0 ? "2px solid #007bff" : undefined,
-                  }}
-                />
-
-                <button
-                  type="button"
-                  className="btn btn-sm btn-danger position-absolute top-0 end-0"
-                  onClick={() => removeImage(idx)}
-                >
-                  &times;
-                </button>
-
-                {idx !== 0 && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-primary position-absolute bottom-0 start-50 translate-middle-x"
-                    style={{ fontSize: "0.7rem" }}
-                    onClick={() => makeCover(idx)}
-                  >
-                    Make Cover
-                  </button>
-                )}
-              </div>
-              <small className="text-muted d-block mt-1">
-                {imgObj.width}×{imgObj.height}px,{" "}
-                {(imgObj.file.size / 1024).toFixed(1)} KB
-              </small>
-            </div>
-          ))}
-        </div>
-
-        {images.length < MIN_IMAGES && (
-          <div className="alert alert-warning">
-            Please upload at least {MIN_IMAGES - images.length} image
-            {MIN_IMAGES - images.length > 1 ? "s" : ""}.
-          </div>
-        )}
-
-        <button
-          type="submit"
-          className="btn btn-success"
-          disabled={images.length < MIN_IMAGES || images.length > MAX_IMAGES}
-        >
-          {images.length >= MIN_IMAGES && images.length <= MAX_IMAGES
-            ? "Submit Product"
-            : "Adjust Images to Enable Submission"}
+        <button type="submit" className="btn btn-success">
+          Save Product
         </button>
       </form>
 
