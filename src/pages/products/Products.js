@@ -21,9 +21,8 @@ import {
 import CIcon from '@coreui/icons-react';
 import { cilOptions, cilPencil } from '@coreui/icons';
 import ReactPaginate from 'react-paginate';
-import { getVendorFilteredProducts } from '../../api/productRequests';
+import { getProducts } from '../../api/productRequests';
 import '../../styles/custom.css';
-import { S3_BASE_URL } from '../../constants/consts';
 import { useNavigate } from 'react-router-dom';
 
 const Products = () => {
@@ -62,7 +61,7 @@ const Products = () => {
                 isParent = true;
             }
 
-            const res = await getVendorFilteredProducts({
+            const res = await getProducts({
                 page: currentPage,
                 size: 10,
                 isParent: isParent ?? true,
