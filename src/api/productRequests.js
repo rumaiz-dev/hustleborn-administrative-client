@@ -1,8 +1,6 @@
 import api from "../utils/api";
 import qs from 'qs';
-import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 export const createProduct = async (payload) => {
   try {
@@ -93,8 +91,8 @@ export const uploadWebpCover = async (webpFile) => {
 
     fd.append("uploadFile", webpFile);
 
-    const response = await axios.post(
-      `${backendUrl}/public/v2/bigmall/objects/upload/webp?folderName=product-images-webp&keyName=${keyName}`,
+    const response = await api.post(
+      `/public/v2/bigmall/objects/upload/webp?folderName=product-images-webp&keyName=${keyName}`,
       fd,
       { headers: { "Content-Type": "multipart/form-data" } }
     );
