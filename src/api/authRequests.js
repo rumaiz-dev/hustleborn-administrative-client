@@ -42,6 +42,21 @@ export const fetchUserPermissions = async (resourceType) => {
   }
 };
 
+export const refreshToken = async () => {
+  try {
+    const response = await api.post(
+      `${backendUrl}/api/auth/refresh`,
+      {},
+      {
+        withCredentials: true,
+      },
+    );
+    return response.data;
+  } catch (err) {
+    throw new Error("Token refresh failed: " + err.message);
+  }
+};
+
 
 
 

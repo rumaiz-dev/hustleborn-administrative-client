@@ -11,8 +11,8 @@ const hasPermission = (permissions, requiredPermission) => {
 }
 
 const ProtectedRoute = ({ element: Component, requiredPermission }) => {
-    const isAuthenticated = useSelector((state) => state.isAuthenticated)
-    const permissions = useSelector((state) => state.permissions || [])
+    const isAuthenticated = useSelector((state) => state.auth.isAuthenticated)
+    const permissions = useSelector((state) => state.auth.permissions || [])
     if (!isAuthenticated) {
         return <Navigate to="/login" />
     }

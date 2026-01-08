@@ -17,13 +17,14 @@ import { cilLockLocked, cilUser } from "@coreui/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { login, fetchUserPermissions } from "../../api/authRequests";
 import { jwtDecode } from "jwt-decode";
+import { login as loginAction, setPermissions } from "../../slices/authSlice";
 
 const Login = () => {
   const dispatch = useDispatch();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const isAuthenticated = useSelector((state) => state.isAuthenticated);
+  const isAuthenticated = useSelector((state) => state.auth.isAuthenticated);
   if (isAuthenticated) {
     return <Navigate to="/" />;
   }
@@ -32,24 +33,13 @@ const Login = () => {
     setError("");
     try {
       const response = await login(username, password);
-      const token = response.data.token; 
+      const token = response.data.token;
 
-      localStorage.setItem("token", token);
       const decoded = jwtDecode(token);
-      dispatch({
-        type: "set",
-        userId: decoded.userId,
-        accountId: decoded.accountId,
-        username: decoded.username,
-      });
-      dispatch({ type: "login", token });
-      await fetchUserPermissions("Default")
-        .then((permissions) => {
-          dispatch({ type: "set_permissions", permissions });
-        })
-        .catch((error) => {
-          console.error("Failed to fetch permissions:", error);
-        });
+      const user = { userId: decoded.userId, accountId: decoded.accountId, username: decoded.username };
+      dispatch(loginAction({ token, user, permissions: [] })); // Dispatch login with token first
+      const permissions = await fetchUserPermissions("Default");
+      dispatch(setPermissions(permissions)); // Then set permissions
     } catch (err) {
       console.error("Login failed:", err);
       setError("Invalid username or password. Please try again.");

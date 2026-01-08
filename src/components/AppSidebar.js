@@ -19,7 +19,7 @@ const AppSidebar = () => {
     const dispatch = useDispatch()
     const unfoldable = useSelector((state) => state.sidebarUnfoldable)
     const sidebarShow = useSelector((state) => state.sidebarShow)
-    const permissions = useSelector((state) => state.permissions || [])
+    const permissions = useSelector((state) => state.auth.permissions || [])
 
     const filteredNavigation = useMemo(
         () => filterNavigationItems(navigation, permissions),

@@ -12,6 +12,7 @@ import Cookies from 'js-cookie'
 import { persistor } from '../../store'
 import CIcon from '@coreui/icons-react'
 import { useSelector } from 'react-redux'
+import { logout } from '../../slices/authSlice'
 
 
 const AppHeaderDropdown = () => {
@@ -20,10 +21,8 @@ const AppHeaderDropdown = () => {
     const username = useSelector(state => state.username)
 
     const handleLogout = async () => {
-        await logout()
         Cookies.remove('accessToken')
-        localStorage.removeItem('accessToken')
-        dispatch({ type: 'logout' })
+        dispatch(logout())
         persistor.purge()
         navigate('/login')
     }

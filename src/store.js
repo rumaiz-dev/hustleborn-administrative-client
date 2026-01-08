@@ -1,50 +1,32 @@
-import { legacy_createStore as createStore } from 'redux'
-import { persistStore, persistReducer } from 'redux-persist'
-import createWebStorage from 'redux-persist/lib/storage/createWebStorage'
+import { configureStore } from '@reduxjs/toolkit';
+import { persistStore, persistReducer } from 'redux-persist';
+import storage from 'redux-persist/lib/storage/session';
+import { useDispatch, useSelector } from 'react-redux';
+import authReducer from './slices/authSlice';
+import uiReducer from './slices/uiSlice';
 
-const storage = createWebStorage('session')
-
-const initialState = {
-    sidebarShow: true,
-    theme: 'light',
-    isAuthenticated: false,
-    permissions: [],
-    userId: null,
-    accountId: null,
-    username: null,
-    token: null,
-}
-
-const changeState = (state = initialState, { type, ...rest }) => {
-    switch (type) {
-        case 'set':
-            return { ...state, ...rest }
-        case 'login':
-            return { ...state, isAuthenticated: true, token: rest.token }
-        case 'logout':
-            return { ...state, isAuthenticated: false, permissions: [], userId: null, accountId: null, username: null, token: null }
-        case 'set_permissions':
-            return {
-                ...state,
-                permissions: rest.permissions,
-                isAuthenticated: true,
-            }
-        default:
-            return state
-    }
-}
-
-// Redux Persist configuration
 const persistConfig = {
-    key: 'root',
-    storage,
-    whitelist: ['isAuthenticated', 'permissions', 'userId', 'accountId', 'username', 'token'], // Only persist specific keys if desired
+  key: 'auth',
+  storage,
+  whitelist: ['token', 'isAuthenticated', 'user', 'permissions'],
+};
 
-}
+const persistedAuthReducer = persistReducer(persistConfig, authReducer);
 
-const persistedReducer = persistReducer(persistConfig, changeState)
+export const store = configureStore({
+  reducer: {
+    auth: persistedAuthReducer,
+    ui: uiReducer,
+  },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
+      },
+    }),
+});
 
-const store = createStore(persistedReducer)
-const persistor = persistStore(store)
+export const persistor = persistStore(store);
 
-export { store, persistor }
+export const useAppDispatch = () => useDispatch();
+export const useAppSelector = useSelector;
