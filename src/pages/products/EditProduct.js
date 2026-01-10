@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { getMainCategories } from "../../api/categoryRequests"; 
-import { updateProduct, getProductDetails } from "../../api/productRequests"; 
+import { getCategories } from "../../api/categoryRequests";
+import { updateProduct, getProductById } from "../../api/productRequests";
 import RichTextField from "../../components/textEditor/RichText";
 import { CheckBox } from "../../components/multiselectcheckbox";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -18,20 +18,14 @@ import {
   CDropdownToggle,
   CDropdownMenu,
   CDropdownItem,
-} from '@coreui/react';
-import { CIcon } from '@coreui/icons-react';
-import { cilOptions } from '@coreui/icons';
-import { S3_BASE_URL, S3_BASE_URL_WEBP } from '../../constants/consts';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+} from "@coreui/react";
+import { CIcon } from "@coreui/icons-react";
+import { cilOptions } from "@coreui/icons";
+import { S3_BASE_URL, S3_BASE_URL_WEBP } from "../../constants/consts";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { facebookCategories } from "../../constants/facebookCategories";
-import { toast } from 'react-toastify';
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
-
-const MIN_IMAGES = 1;
-const MAX_IMAGES = 6;
-const MAX_SIZE_BYTES = 200 * 1024;
-const MAX_DIMENSION = 300;
+import { toast } from "react-toastify";
 
 const EditProduct = () => {
   const { id: productId } = useParams();
@@ -53,7 +47,6 @@ const EditProduct = () => {
     weight: "",
     warranty: "",
     category: [],
-    images: [],
     dimensions: {
       length: "",
       width: "",
@@ -62,10 +55,9 @@ const EditProduct = () => {
     subCategories: [],
     sku: "",
     code: "",
-    parentId: "null"
+    parentId: "null",
   });
   console.log("Form", form);
-  const [images, setImages] = useState([]);
   const [attributes, setAttributes] = useState([]);
   const [newAttributes, setNewAttributes] = useState([]);
   const [attribute, setAttribute] = useState({
@@ -77,7 +69,11 @@ const EditProduct = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingIndex, setEditingIndex] = useState(null);
-  const [editingAttribute, setEditingAttribute] = useState({ keyName: "", value: "", position: "" });
+  const [editingAttribute, setEditingAttribute] = useState({
+    keyName: "",
+    value: "",
+    position: "",
+  });
   const navigate = useNavigate();
 
   const [webpCover, setWebpCover] = useState(null);
@@ -106,9 +102,9 @@ const EditProduct = () => {
     setEditingAttribute({ ...attr });
   };
 
-
   const handleSaveEdit = () => {
-    if (!editingAttribute.keyName?.trim() || !editingAttribute.value?.trim()) return;
+    if (!editingAttribute.keyName?.trim() || !editingAttribute.value?.trim())
+      return;
 
     const updatedAttribute = {
       ...editingAttribute,
@@ -117,11 +113,15 @@ const EditProduct = () => {
 
     if (editingIndex.isNew) {
       setNewAttributes((prev) =>
-        prev.map((attr, i) => (i === editingIndex.index ? updatedAttribute : attr))
+        prev.map((attr, i) =>
+          i === editingIndex.index ? updatedAttribute : attr,
+        ),
       );
     } else {
       setAttributes((prev) =>
-        prev.map((attr, i) => (i === editingIndex.index ? updatedAttribute : attr))
+        prev.map((attr, i) =>
+          i === editingIndex.index ? updatedAttribute : attr,
+        ),
       );
     }
 
@@ -139,7 +139,6 @@ const EditProduct = () => {
     setEditingAttribute(null);
   };
 
-
   useEffect(() => {
     const fetchProductDetails = async () => {
       if (!productId) {
@@ -148,7 +147,7 @@ const EditProduct = () => {
       }
       try {
         setLoading(true);
-        const data = await getProductDetails(productId);
+        const data = await getProductById(productId);
         const product = data.product;
         const productDetails = data;
         const initialSelectedCategories = [];
@@ -156,7 +155,7 @@ const EditProduct = () => {
         setProductState(product);
 
         if (product.category && Array.isArray(product.category)) {
-          product.category.forEach(cat => {
+          product.category.forEach((cat) => {
             if (cat.id === cat.parentId) {
               initialSelectedCategories.push(cat.id);
             } else {
@@ -188,11 +187,7 @@ const EditProduct = () => {
           subCategories: initialSelectedSubCategories,
           sku: product.sku || "",
           code: product.code || "",
-          images: (product.images || []).filter(
-            (img) => img && !img.toLowerCase().includes("webp added")
-          ),
           parentId: product.parentId || "",
-          // parentId: product.parentId ?? productDetails.parentId ?? "",
           dimensions: {
             length: product.dimensions?.length || "",
             width: product.dimensions?.width || "",
@@ -204,36 +199,8 @@ const EditProduct = () => {
         console.log("Fetched full data : ", data);
         console.log("product.parentId : ", product.parentId);
 
-        const fetchedImages = (product.images || [])
-          .filter((imageKey) =>
-            !imageKey.toLowerCase().includes("webp added")
-          )
-          .map((imageKey) => ({
-            file: null,
-            preview: `${S3_BASE_URL}${imageKey}`,
-            width: 0,
-            height: 0,
-          }));
-
-        console.log("Fetched images : ", fetchedImages);
-        setImages(fetchedImages);
-
-        if (product.mainImage
-        ) {
-          const webpFileName = product.mainImage;
-          const webpUrl = `${S3_BASE_URL_WEBP}${webpFileName}`;
-
-          console.log("WebP status detected. Cover set to : ", webpUrl);
-
-          setExistingWebpCover(webpUrl);
-
-        } else {
-          console.log("No WebP status found. So, skipping WebP cover setup.");
-          setExistingWebpCover(null);
-        }
-
         const fetchedAttributes = Object.values(
-          productDetails.attributes || {}
+          productDetails.attributes || {},
         ).map((attr) => ({
           id: attr.id,
           keyName: attr.slug.replace(/-/g, " "),
@@ -242,7 +209,6 @@ const EditProduct = () => {
         }));
         setAttributes(fetchedAttributes);
         setVariations(data.variations || []);
-
       } catch (err) {
         console.error("Error fetching product details:", err);
         setError("Failed to fetch product details.");
@@ -263,19 +229,20 @@ const EditProduct = () => {
     console.log("Navigating to create variant for product ID:", productId);
   };
 
-
   useEffect(() => {
     const fetchAllCategoriesAndSubcategories = async () => {
       try {
-        const categoryData = await getMainCategories();
+        const categoryData = await getCategories();
         const categories = categoryData;
-        const mainCategories = categories.filter(cat => cat.parent === cat.id);
+        const mainCategories = categories.filter(
+          (cat) => cat.parent === cat.id,
+        );
         const subCategoryMap = {};
-        mainCategories.forEach(main => {
+        mainCategories.forEach((main) => {
           subCategoryMap[main.id] = [];
         });
 
-        categories.forEach(cat => {
+        categories.forEach((cat) => {
           if (cat.parent !== cat.id && subCategoryMap[cat.parent]) {
             subCategoryMap[cat.parent].push(cat);
           }
@@ -283,7 +250,6 @@ const EditProduct = () => {
 
         setCategories(mainCategories);
         setSubCategoryData(subCategoryMap);
-
       } catch (error) {
         console.error("Error fetching categories or subcategories:", error);
         alert("Failed to fetch categories or subcategories.");
@@ -292,7 +258,6 @@ const EditProduct = () => {
 
     fetchAllCategoriesAndSubcategories();
   }, []);
-
 
   const handleCategoryChange = (categoryId) => {
     setForm((prevForm) => {
@@ -304,10 +269,10 @@ const EditProduct = () => {
         updatedCategories = prevForm.category.filter((id) => id !== categoryId);
         if (subCategoryData[categoryId]) {
           const subCategoryIdsToRemove = subCategoryData[categoryId].map(
-            (subcat) => subcat.id
+            (subcat) => subcat.id,
           );
           updatedSubCategories = updatedSubCategories.filter(
-            (subId) => !subCategoryIdsToRemove.includes(subId)
+            (subId) => !subCategoryIdsToRemove.includes(subId),
           );
         }
       } else {
@@ -332,14 +297,6 @@ const EditProduct = () => {
         ...prevForm,
         subCategories: updatedSubCategories,
       };
-    });
-  };
-
-  const makeCover = (idx) => {
-    if (idx === 0) return;
-    setImages((imgs) => {
-      const chosen = imgs[idx];
-      return [chosen, ...imgs.filter((_, i) => i !== idx)];
     });
   };
 
@@ -375,8 +332,7 @@ const EditProduct = () => {
           [name]: value,
         },
       }));
-    }
-    else {
+    } else {
       setForm((f) => ({ ...f, [name]: value }));
     }
   };
@@ -388,139 +344,10 @@ const EditProduct = () => {
     setForm((f) => ({ ...f, shortDesc: html }));
   };
 
-
-  const handleFiles = (e) => {
-    const files = Array.from(e.target.files);
-    const newImages = [...images];
-
-    for (let file of files) {
-      if (newImages.length >= MAX_IMAGES) {
-        alert(`You can only upload up to ${MAX_IMAGES} images.`);
-        break;
-      }
-      if (file.size > MAX_SIZE_BYTES) {
-        alert(`${file.name}: exceeds 200 KB.`);
-        continue;
-      }
-      const img = new Image();
-      img.src = URL.createObjectURL(file);
-      img.onload = () => {
-        if (img.width > MAX_DIMENSION || img.height > MAX_DIMENSION) {
-          alert(
-            `${file.name}: dimensions ${img.width}×${img.height} exceed 300×300 px.`
-          );
-        } else {
-          newImages.push({
-            file,
-            preview: img.src,
-            width: img.width,
-            height: img.height,
-          });
-          setImages(newImages);
-        }
-      };
-    }
-    e.target.value = null;
-  };
-
-  // Handle WebP file
-  const handleWebpFile = (e) => {
-    const file = e.target.files[0];
-
-    if (!file) return;
-
-    if (!file.name.toLowerCase().endsWith(".webp")) {
-      alert("Please upload only webp images");
-      e.target.value = null;
-      return;
-    }
-
-    if (file.size > 60 * 1024) {
-      alert(`${file.name} exceeds 60KB limit`);
-      e.target.value = null;
-      return;
-    }
-    const img = new Image();
-    img.src = URL.createObjectURL(file);
-
-    img.onload = () => {
-      if (img.width > MAX_DIMENSION || img.height > MAX_DIMENSION) {
-        alert(
-          `${file.name}: dimensions ${img.width}×${img.height} exceed 300×300 px.`
-        );
-      } else {
-        setWebpCover({
-          file,
-          preview: img.src,
-          width: img.width,
-          height: img.height,
-        });
-        // If new one upload, replace and show
-        setExistingWebpCover(null);
-      }
-    };
-    e.target.value = null;
-  };
-
-  const removeImage = (idx) => {
-    setImages((imgs) => imgs.filter((_, i) => i !== idx));
-
-    if (idx === 0) {
-      setExistingWebpCover(null);
-      setWebpCover(null);
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (images.length < MIN_IMAGES || images.length > MAX_IMAGES) {
-      toast.warn(`Please upload between ${MIN_IMAGES} and ${MAX_IMAGES} images.`);
-      return;
-    }
-
-    if (!webpCover && !existingWebpCover) {
-      toast.warn(`Please upload a WebP cover before updating.`);
-      return;
-    }
-
     try {
-      // Handle WebP cover logic
-      let webpKeyName = null;
-
-      if (webpCover) {
-        // New WebP select & upload
-        webpKeyName = await handleUploadWebp(productState);
-      } else {
-        // No new WebP selected & keep existing one if available
-        webpKeyName = existingWebpCover ? existingWebpCover.split("/").pop() : null;
-        console.log("Reusing existing WebP cover : ", webpKeyName);
-      }
-
-      const imagesToUpload = images.filter((img) => img.file);
-
-      const uploadPromises = imagesToUpload.map(({ file }) => {
-        const fd = new FormData();
-        const ext = file.name.split(".").pop();
-        const keyName = `${uuidv4()}.${ext}`;
-        fd.append("uploadFile", file);
-        return axios
-          .post(
-            `${backendUrl}/public/v2/bigmall/objects/upload/file?folderName=product-images&keyName=${keyName}`,
-            fd,
-            { headers: { "Content-Type": "multipart/form-data" } }
-          )
-          .then(() => keyName);
-      });
-
-      const uploadedKeys = await Promise.all(uploadPromises);
-
-      const existingImageKeys = images
-        .filter((img) => !img.file)
-        .map((img) => img.preview.split("/").pop());
-      const allImageKeys = [...uploadedKeys, ...existingImageKeys];
-
-
       const payload = {
         name: form.name,
         description: form.description,
@@ -539,12 +366,7 @@ const EditProduct = () => {
         code: form.code,
         parentId: form.parentId,
         meta_category_tag: form.metaCategoryTag,
-        categories: form.subCategories.map(id => ({ id })),
-        images: allImageKeys.map((image, index) => ({
-          src: image,
-          position: index,
-        })),
-        mainImage: webpKeyName,
+        categories: form.subCategories.map((id) => ({ id })),
         attributes: attributes.map((attr, index) => ({
           id: attr.id,
           name: attr.keyName.trim(),
@@ -557,7 +379,7 @@ const EditProduct = () => {
         newAttributes: newAttributes.map((attr, index) => ({
           name: attr.keyName.trim(),
           slug: attr.keyName.trim().toLowerCase().replace(/\s+/g, "-"),
-          position: parseInt(attr.position || (attributes.length + index), 10),
+          position: parseInt(attr.position || attributes.length + index, 10),
           visible: true,
           variation: form.productType === "variable",
           options: attr.value.split(",").map((v) => v.trim()),
@@ -579,60 +401,6 @@ const EditProduct = () => {
     }
   };
 
-  const handleUploadWebp = async (product) => {
-
-    console.log("handleUploadWebp" + product)
-
-    if (!product || !product.images) return null;
-
-    if (form.parentId) {
-      console.log("Skipping WebP upload for the variant product.");
-      console.log("form.parentId:", form.parentId);
-      return null;
-    }
-
-    if (!webpCover && existingWebpCover) {
-      console.log("Reusing existing WebP cover:", existingWebpCover);
-      return existingWebpCover.split("/").pop();
-    }
-
-    if (!webpCover || !webpCover.file) {
-      alert("Please select a WebP cover image first.");
-      return null;
-    }
-
-    try {
-      const fd = new FormData();
-      const firstImage = product.images[0];
-      const fileName = typeof firstImage === "string" ? firstImage : firstImage.src;
-      const originalName = fileName.split("/").pop();
-      const webpFileName = originalName.replace(/\.(png|jpg|jpeg)$/i, ".webp");
-
-      console.log("Image", webpFileName);
-
-      fd.append("uploadFile", webpCover.file);
-
-      const res = await axios.post(
-        `${backendUrl}/public/v2/bigmall/objects/upload/webp?folderName=product-images-webp&keyName=${webpFileName}`,
-        fd,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
-
-      if (res.status === 200) {
-        const uploadedWebpUrl = `${S3_BASE_URL_WEBP}${webpFileName}`;
-        setExistingWebpCover(uploadedWebpUrl);
-        setWebpCover(null);
-      }
-      toast.success("WebP cover image updated successfully !");
-
-      return webpFileName;
-    } catch (err) {
-      console.error("WebP cover image update failed : ", err);
-      toast.error("Failed to update WebP cover image : " + err.message);
-      return null;
-    }
-  };
-
   if (loading) {
     return <div className="text-center mt-5">Loading product details...</div>;
   }
@@ -642,7 +410,9 @@ const EditProduct = () => {
   }
 
   console.log("Parent Id:", form.parentId);
-  { console.log("form.parentId value:", form.parentId, typeof form.parentId) }
+  {
+    console.log("form.parentId value:", form.parentId, typeof form.parentId);
+  }
 
   return (
     <div className="container">
@@ -655,11 +425,9 @@ const EditProduct = () => {
                 <CIcon icon={cilOptions} size="lg" />
               </CDropdownToggle>
               <CDropdownMenu>
-
                 <CDropdownItem onClick={handleNavigateCreateVariant}>
                   Create Variant Products
                 </CDropdownItem>
-
               </CDropdownMenu>
             </CDropdown>
           </div>
@@ -715,27 +483,31 @@ const EditProduct = () => {
                     />
 
                     {/* Subcategories */}
-                    {form.category.includes(category.id) && subCategoryData[category.id]?.length > 0 && (
-                      <div style={{ marginLeft: "24px", marginTop: "4px" }}>
-                        {subCategoryData[category.id].map((subcategory) => (
-                          <div key={subcategory.id} className="mb-1">
-                            <CheckBox
-                              id={`subcategory-${subcategory.id}`}
-                              label={subcategory.name}
-                              checked={form.subCategories.includes(subcategory.id)}
-                              onChange={() => handleSubcategoryChange(subcategory.id)}
-                              color="primary"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    {form.category.includes(category.id) &&
+                      subCategoryData[category.id]?.length > 0 && (
+                        <div style={{ marginLeft: "24px", marginTop: "4px" }}>
+                          {subCategoryData[category.id].map((subcategory) => (
+                            <div key={subcategory.id} className="mb-1">
+                              <CheckBox
+                                id={`subcategory-${subcategory.id}`}
+                                label={subcategory.name}
+                                checked={form.subCategories.includes(
+                                  subcategory.id,
+                                )}
+                                onChange={() =>
+                                  handleSubcategoryChange(subcategory.id)
+                                }
+                                color="primary"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                   </div>
                 ))}
               </div>
             </div>
           </div>
-
         )}
 
         <div className="row mb-3">
@@ -1007,165 +779,11 @@ const EditProduct = () => {
           </div>
         </div>
 
-        {/* WebP Cover Upload/Update */}
-        {!form.parentId && (
-          <>
-            <div className="mb-4">
-              <label htmlFor="webpUpload" className="form-label">
-                {existingWebpCover && !webpCover
-                  ? "Update webp cover image"
-                  : "Upload webp cover image"}
-              </label>
-              <input
-                id="webpUpload"
-                type="file"
-                accept="image/webp"
-                className="form-control"
-                onChange={handleWebpFile}
-              />
-            </div>
-
-            {/* Show existing WebP cover (if present & not replaced) */}
-            {existingWebpCover && !webpCover && (
-              <div className="text-center mt-3">
-                <div className="position-relative d-inline-block">
-                  <img
-                    src={existingWebpCover + "?v=" + Date.now()}
-                    alt="Existing WebP Cover"
-                    className="img-thumbnail"
-                    style={{
-                      maxWidth: "200px",
-                      border: "2px solid #007bff",
-                    }}
-                  />
-                  <span className="badge bg-success position-absolute top-0 start-0">
-                    Current
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-danger position-absolute top-0 end-0"
-                    onClick={() => setExistingWebpCover(null)}
-                  >
-                    &times;
-                  </button>
-                </div>
-                <small className="text-muted d-block mt-2">WebP Cover Image</small>
-              </div>
-            )}
-
-            {/* Show new WebP preview (if user selected one) */}
-            {webpCover && (
-              <div className="text-center mt-3">
-                <div className="position-relative d-inline-block">
-                  <img
-                    src={webpCover.preview}
-                    alt="New WebP Cover"
-                    className="img-thumbnail"
-                    style={{
-                      maxWidth: "200px",
-                      border: "2px solid #007bff",
-                    }}
-                  />
-                  <span className="badge bg-primary position-absolute top-0 start-0">
-                    New
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-danger position-absolute top-0 end-0"
-                    onClick={() => setWebpCover(null)}
-                  >
-                    &times;
-                  </button>
-                </div>
-                <small className="text-muted d-block mt-2">
-                  {webpCover.width}×{webpCover.height}px,{" "}
-                  {(webpCover.file.size / 1024).toFixed(1)} KB
-                </small>
-              </div>
-            )}
-          </>
-        )}
-
-        <div className="mb-3">
-          <label htmlFor="imageUpload" className="form-label">
-            Select between {MIN_IMAGES} and {MAX_IMAGES} images:
-          </label>
-          <input
-            id="imageUpload"
-            type="file"
-            accept="image/*"
-            multiple
-            className="form-control"
-            onChange={handleFiles}
-          />
-        </div>
-
-        <div className="row mb-3">
-          {images.map((imgObj, idx) => (
-            <div key={idx} className="col-6 col-md-3 text-center mb-3">
-              <div className="position-relative d-inline-block">
-                <img
-                  src={imgObj.preview}
-                  alt={`Preview ${idx + 1}`}
-                  className="img-thumbnail p-0"
-                  style={{
-                    width: "150px",
-                    height: "auto",
-                    objectFit: "cover",
-                    border: idx === 0 ? "2px solid #007bff" : undefined,
-                    margin: 0,
-                  }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-sm btn-danger position-absolute"
-                  style={{ top: "2px", right: "2px", padding: "0.2rem 0.4rem" }}
-                  onClick={() => removeImage(idx)}
-                >
-                  &times;
-                </button>
-
-                {idx !== 0 && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-primary position-absolute bottom-0 start-50 translate-middle-x"
-                    style={{ fontSize: "0.7rem" }}
-                    onClick={() => makeCover(idx)}
-                  >
-                    Make Cover
-                  </button>
-                )}
-              </div>
-              <small className="text-muted d-block mt-1">
-                {imgObj.width > 0 && imgObj.height > 0
-                  ? `${imgObj.width}×${imgObj.height}px, `
-                  : ""}
-                {imgObj.file ? `${(imgObj.file.size / 1024).toFixed(1)} KB` : ""}
-              </small>
-            </div>
-          ))}
-        </div>
-
-        {images.length < MIN_IMAGES && (
-          <div className="alert alert-warning">
-            Please upload at least {MIN_IMAGES - images.length} more image
-            {MIN_IMAGES - images.length > 1 ? "s" : ""}.
-          </div>
-        )}
-        {images.length > MAX_IMAGES && (
-          <div className="alert alert-warning">
-            You have uploaded {images.length - MAX_IMAGES} too many images. Please remove some.
-          </div>
-        )}
-
         <button
           type="submit"
           className="btn bg-white text-success border border-success mb-3"
-          disabled={images.length < MIN_IMAGES || images.length > MAX_IMAGES}
         >
-          {images.length >= MIN_IMAGES && images.length <= MAX_IMAGES
-            ? "Update Product"
-            : "Adjust Images to Enable Update"}
+          "Update Product"
         </button>
       </form>
 
@@ -1191,7 +809,10 @@ const EditProduct = () => {
                       <input
                         value={editingAttribute.keyName}
                         onChange={(e) =>
-                          setEditingAttribute((prev) => ({ ...prev, keyName: e.target.value }))
+                          setEditingAttribute((prev) => ({
+                            ...prev,
+                            keyName: e.target.value,
+                          }))
                         }
                         className="form-control"
                       />
@@ -1200,7 +821,10 @@ const EditProduct = () => {
                       <input
                         value={editingAttribute.value}
                         onChange={(e) =>
-                          setEditingAttribute((prev) => ({ ...prev, value: e.target.value }))
+                          setEditingAttribute((prev) => ({
+                            ...prev,
+                            value: e.target.value,
+                          }))
                         }
                         className="form-control"
                       />
@@ -1210,16 +834,25 @@ const EditProduct = () => {
                         type="number"
                         value={editingAttribute.position}
                         onChange={(e) =>
-                          setEditingAttribute((prev) => ({ ...prev, position: e.target.value }))
+                          setEditingAttribute((prev) => ({
+                            ...prev,
+                            position: e.target.value,
+                          }))
                         }
                         className="form-control"
                       />
                     </CTableDataCell>
                     <CTableDataCell>
-                      <button className="btn btn-sm btn-primary me-2" onClick={handleSaveEdit}>
+                      <button
+                        className="btn btn-sm btn-primary me-2"
+                        onClick={handleSaveEdit}
+                      >
                         Save
                       </button>
-                      <button className="btn btn-sm btn-secondary" onClick={handleCancelEdit}>
+                      <button
+                        className="btn btn-sm btn-secondary"
+                        onClick={handleCancelEdit}
+                      >
                         Cancel
                       </button>
                     </CTableDataCell>
@@ -1260,7 +893,10 @@ const EditProduct = () => {
                       <input
                         value={editingAttribute.keyName}
                         onChange={(e) =>
-                          setEditingAttribute((prev) => ({ ...prev, keyName: e.target.value }))
+                          setEditingAttribute((prev) => ({
+                            ...prev,
+                            keyName: e.target.value,
+                          }))
                         }
                         className="form-control"
                       />
@@ -1269,7 +905,10 @@ const EditProduct = () => {
                       <input
                         value={editingAttribute.value}
                         onChange={(e) =>
-                          setEditingAttribute((prev) => ({ ...prev, value: e.target.value }))
+                          setEditingAttribute((prev) => ({
+                            ...prev,
+                            value: e.target.value,
+                          }))
                         }
                         className="form-control"
                       />
@@ -1279,16 +918,25 @@ const EditProduct = () => {
                         type="number"
                         value={editingAttribute.position}
                         onChange={(e) =>
-                          setEditingAttribute((prev) => ({ ...prev, position: e.target.value }))
+                          setEditingAttribute((prev) => ({
+                            ...prev,
+                            position: e.target.value,
+                          }))
                         }
                         className="form-control"
                       />
                     </CTableDataCell>
                     <CTableDataCell>
-                      <button className="btn btn-sm btn-primary me-2" onClick={handleSaveEdit}>
+                      <button
+                        className="btn btn-sm btn-primary me-2"
+                        onClick={handleSaveEdit}
+                      >
                         Save
                       </button>
-                      <button className="btn btn-sm btn-secondary" onClick={handleCancelEdit}>
+                      <button
+                        className="btn btn-sm btn-secondary"
+                        onClick={handleCancelEdit}
+                      >
                         Cancel
                       </button>
                     </CTableDataCell>
@@ -1349,7 +997,6 @@ const EditProduct = () => {
                       <CTableHeaderCell>Sale Price (LKR)</CTableHeaderCell>
                       <CTableHeaderCell>Stock Quantity</CTableHeaderCell>
                       <CTableHeaderCell>Stock Status</CTableHeaderCell>
-                      <CTableHeaderCell>Image</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
@@ -1363,20 +1010,13 @@ const EditProduct = () => {
                       <CTableDataCell>
                         {variation.product.salePrice
                           ? variation.product.salePrice.toFixed(2)
-                          : '—'}
+                          : "—"}
                       </CTableDataCell>
-                      <CTableDataCell>{variation.product.stockQuantity}</CTableDataCell>
-                      <CTableDataCell>{variation.product.stockStatus}</CTableDataCell>
                       <CTableDataCell>
-                        {variation.product.images && variation.product.images.length > 0 ? (
-                          <img
-                            src={`${S3_BASE_URL}${variation.product.images[0]}`}
-                            alt={variation.product.name}
-                            style={{ width: '50px', height: '50px', objectFit: 'cover' }}
-                          />
-                        ) : (
-                          <span>No Image</span>
-                        )}
+                        {variation.product.stockQuantity}
+                      </CTableDataCell>
+                      <CTableDataCell>
+                        {variation.product.stockStatus}
                       </CTableDataCell>
                     </CTableRow>
                   </CTableBody>

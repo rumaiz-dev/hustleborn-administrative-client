@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import RichTextField from "../../components/textEditor/RichText";
 import { v4 as uuidv4 } from "uuid";
-import { createProductVariants, getProductById, checkIfCodeExists } from "../../api/productRequests";
+import { createProductVariants, getProductById, checkCode } from "../../api/productRequests";
 import { useParams, useNavigate } from "react-router-dom";
 import { CDropdown, CDropdownToggle, CDropdownMenu, CDropdownItem } from '@coreui/react';
 import { BsTrash } from 'react-icons/bs';
@@ -9,14 +9,8 @@ import { CIcon } from '@coreui/icons-react';
 import { cilOptions } from '@coreui/icons';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import axios from "axios";
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
-const MAX_IMAGES = 6;
-const MAX_SIZE_BYTES = 200 * 1024;
-const MAX_DIMENSION = 300;
 const CreateVariantProduct = () => {
-
     const [variants, setVariants] = useState([
         {
             id: uuidv4(),
@@ -24,7 +18,6 @@ const CreateVariantProduct = () => {
             shortDesc: "",
             description: "",
             attributes: [],
-            images: [],
             purchasePrice: "",
             regularPrice: "",
             salePrice: "",
@@ -109,7 +102,6 @@ const CreateVariantProduct = () => {
                     shortDesc: baseVariant.shortDesc,
                     description: baseVariant.description,
                     attributes: [],
-                    images: [],
                     purchasePrice: baseVariant.purchasePrice,
                     regularPrice: baseVariant.regularPrice,
                     salePrice: baseVariant.salePrice,
@@ -209,109 +201,6 @@ const CreateVariantProduct = () => {
         );
     };
 
-    const handleVariantFiles = (variantId, e) => {
-        const files = Array.from(e.target.files);
-        if (files.length === 0) return;
-
-        e.target.value = null;
-
-        setVariants(prevVariants =>
-            prevVariants.map(variant => {
-                if (variant.id !== variantId) return variant;
-
-                const currentImages = [...variant.images];
-                let availableSlots = MAX_IMAGES - currentImages.length;
-
-                if (availableSlots <= 0) {
-                    toast.warning(`You can only upload up to ${MAX_IMAGES} images per variant.`);
-                    return variant;
-                }
-
-                const filesToProcess = files.slice(0, availableSlots);
-
-                filesToProcess.forEach(file => {
-                    if (file.size > MAX_SIZE_BYTES) {
-                        toast.error(`${file.name}: exceeds ${(MAX_SIZE_BYTES / 1024).toFixed(0)} KB.`);
-                        return;
-                    }
-
-                    const img = new Image();
-                    img.src = URL.createObjectURL(file);
-                    img.onload = () => {
-                        if (img.width > MAX_DIMENSION || img.height > MAX_DIMENSION) {
-                            toast.error(
-                                `${file.name}: dimensions ${img.width}×${img.height} exceed ${MAX_DIMENSION}×${MAX_DIMENSION} px.`
-                            );
-                            URL.revokeObjectURL(img.src);
-                        } else {
-                            setVariants(prev =>
-                                prev.map(v => {
-                                    if (v.id !== variantId) return v;
-                                    return {
-                                        ...v,
-                                        images: [
-                                            ...v.images,
-                                            {
-                                                file,
-                                                preview: img.src,
-                                                width: img.width,
-                                                height: img.height,
-                                                name: file.name,
-                                                size: (file.size / 1024).toFixed(1) + "KB",
-                                            },
-                                        ],
-                                    };
-                                })
-                            );
-                        }
-                    };
-
-                    img.onerror = () => {
-                        toast.error(`${file.name}: Failed to load image.`);
-                        URL.revokeObjectURL(img.src);
-                    };
-                });
-
-                if (files.length > availableSlots) {
-                    const skipped = files.length - availableSlots;
-                    toast.info(`${skipped} image(s) skipped due to slot limitations.`);
-                }
-
-                return variant;
-            })
-        );
-    };
-
-    const makeVariantCover = (variantId, idx) => {
-        if (idx === 0) return;
-
-        setVariants(prev =>
-            prev.map(v => {
-                if (v.id !== variantId) return v;
-
-                const chosen = v.images[idx];
-                const filtered = v.images.filter((_, i) => i !== idx);
-                return {
-                    ...v,
-                    images: [chosen, ...filtered]
-                };
-            })
-        );
-    };
-
-    const removeVariantImage = (variantId, idx) => {
-        setVariants(prev =>
-            prev.map(v => {
-                if (v.id !== variantId) return v;
-                return {
-                    ...v,
-                    images: v.images.filter((_, i) => i !== idx)
-                };
-            })
-        );
-    };
-
-
     useEffect(() => {
         const fetchProductDetails = async () => {
             if (!productId) return;
@@ -327,7 +216,6 @@ const CreateVariantProduct = () => {
                     shortDesc: productDetails.shortDescription || "",
                     description: productDetails.description || "",
                     attributes: [],
-                    images: [],
                     purchasePrice: product.purchasingPrice || "",
                     regularPrice: product.regularPrice || "",
                     salePrice: product.salePrice || "",
@@ -377,39 +265,6 @@ const CreateVariantProduct = () => {
         setIsSubmitting(true);
 
         try {
-            const uploadPromises = [];
-            const variantImageMap = {};
-
-            variants.forEach(variant => {
-                variantImageMap[variant.id] = [];
-
-                variant.images.forEach(image => {
-                    if (image.file) {
-                        const uploadPromise = (() => {
-                            const fd = new FormData();
-                            const ext = image.file.name.split(".").pop();
-                            const keyName = `${uuidv4()}.${ext}`;
-                            fd.append("uploadFile", image.file);
-
-                            return axios
-                                .post(
-                                    `${backendUrl}/public/v2/bigmall/objects/upload/file?folderName=product-images&keyName=${keyName}`,
-                                    fd,
-                                    { headers: { "Content-Type": "multipart/form-data" } }
-                                )
-                                .then((res) => {
-                                    variantImageMap[variant.id].push(keyName);
-                                    return keyName;
-                                });
-                        })();
-
-                        uploadPromises.push(uploadPromise);
-                    }
-                });
-            });
-
-            await Promise.all(uploadPromises);
-
             const variationsToSubmit = variants.map((variationItem) => {
                 const transformedVariationAttributes = transformAttributes(
                     variationItem.attributes
@@ -427,7 +282,6 @@ const CreateVariantProduct = () => {
                     stockStatus: variationItem.stockStatus,
                     suffix: variationItem.suffix || "",
                     selectedAttributes: transformedVariationAttributes,
-                    images: variantImageMap[variationItem.id] || [],
                     status: variationItem.productStatus,
                     variant: Object.values(transformedVariationAttributes).join("-"),
                     type: "variation",
@@ -448,7 +302,7 @@ const CreateVariantProduct = () => {
             };
 
             const codes = variationsToSubmit.map(v => v.code).filter(Boolean);
-            const response = await checkIfCodeExists(codes);
+            const response = await checkCode(codes);
 
             const message = response.message;
             const duplicates = response.object || [];
@@ -786,78 +640,6 @@ const CreateVariantProduct = () => {
                                     />
                                 </div>
                             </div>
-
-
-                            {/* Image Upload Section */}
-                            <div className="mb-3">
-                                <label className="form-label">
-                                    Images ({variant.images.length}/{MAX_IMAGES})
-                                </label>
-                                <input
-                                    type="file"
-                                    className="form-control"
-                                    onChange={(e) => handleVariantFiles(variant.id, e)}
-                                    accept="image/*"
-                                    multiple
-                                />
-                                <small className="form-text text-muted">
-                                    Max {MAX_IMAGES} images per variant. Max size: {Math.round(MAX_SIZE_BYTES / 1024)} KB. Max dimensions: {MAX_DIMENSION}×{MAX_DIMENSION} px.
-                                </small>
-                            </div>
-
-                            <div className="d-flex flex-wrap gap-3 mb-3">
-                                {variant.images.map((image, imageIdx) => (
-                                    <div
-                                        key={imageIdx}
-                                        className="position-relative border rounded shadow-sm p-1 bg-white"
-                                        style={{ width: '110px', height: '130px' }}
-                                    >
-                                        <img
-                                            src={image.preview || `${backendUrl}/uploads/${image.name}`}
-                                            alt={`Variant Image ${imageIdx + 1}`}
-                                            className="img-fluid rounded mb-1"
-                                            style={{ objectFit: 'cover', width: '100%', height: '100px' }}
-                                        />
-
-                                        {imageIdx === 0 && (
-                                            <span className="badge bg-success position-absolute top-0 start-0 m-1">
-                                                Cover
-                                            </span>
-                                        )}
-
-                                        <div
-                                            className="d-flex justify-content-between px-1"
-                                            style={{ height: '28px', overflow: 'hidden' }}
-                                        >
-                                            {imageIdx !== 0 ? (
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-sm btn-outline-success flex-shrink-0 text-truncate"
-                                                    style={{ maxWidth: '70px', padding: '0 6px' }}
-                                                    onClick={() => makeVariantCover(variant.id, imageIdx)}
-                                                    title="Set as Cover Image"
-                                                >
-                                                    Cover
-                                                </button>
-                                            ) : (
-                                                <span className="text-muted small flex-shrink-0">#1</span>
-                                            )}
-
-                                            <button
-                                                type="button"
-                                                className="btn btn-sm btn-outline-danger flex-shrink-0"
-                                                onClick={() => removeVariantImage(variant.id, imageIdx)}
-                                                title="Remove Image"
-                                                style={{ padding: '0 6px' }}
-                                            >
-                                                <BsTrash />
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-
                         </div>
                     </div>
                 ))}
