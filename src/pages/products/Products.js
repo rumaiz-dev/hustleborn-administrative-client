@@ -74,7 +74,7 @@ const Products = () => {
 
             });
 
-            const data = res.data;
+            const data = res;
             if (data && data.content) {
                 setProducts(data.content);
                 setTotalElements(data.totalElements);
@@ -277,23 +277,6 @@ const Products = () => {
                                 <CTableBody>
                                     {products.map((product) => (
                                         <CTableRow key={product.id}>
-                                            <CTableDataCell>
-                                                {product?.images?.length > 0 ? (
-                                                    <img
-                                                        src={S3_BASE_URL + product.images[0]}
-                                                        alt={product.name}
-                                                        style={{
-                                                            width: '50px',
-                                                            height: '50px',
-                                                            objectFit: 'cover',
-                                                            borderRadius: '6px',
-                                                            boxShadow: '0 0 3px rgba(0,0,0,0.2)',
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    <span className="text-muted">No Image</span>
-                                                )}
-                                            </CTableDataCell>
                                             <CTableDataCell style={{ width: '400px', whiteSpace: 'normal', wordWrap: 'break-word' }}>{product.name}</CTableDataCell>
                                             <CTableDataCell>Rs. {product.regularPrice}</CTableDataCell>
                                             <CTableDataCell>Rs. {product.salePrice}</CTableDataCell>

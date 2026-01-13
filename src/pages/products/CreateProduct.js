@@ -1,7 +1,13 @@
 import { useState, useEffect } from "react";
 import { getCategories } from "../../api/categoryRequests";
 import RichTextField from "../../components/textEditor/RichText";
-import { createProduct, checkCode } from "../../api/productRequests";
+import {
+  createProduct,
+  checkCode,
+  getProductStatuses,
+  getStockStatuses,
+  getTypes,
+} from "../../api/productRequests";
 import { Tooltip } from "react-tooltip";
 import { CheckBox } from "../../components/multiselectcheckbox";
 import { toast, ToastContainer } from "react-toastify";
@@ -10,6 +16,9 @@ import "react-toastify/dist/ReactToastify.css";
 const CreateProduct = () => {
   const [categories, setCategories] = useState([]);
   const [subCategoryData, setSubCategoryData] = useState({});
+  const [productStatuses, setProductStatuses] = useState([]);
+  const [stockStatuses, setStockStatuses] = useState([]);
+  const [productTypes, setProductTypes] = useState([]);
   const [form, setForm] = useState({
     name: "",
     slug: "",
@@ -87,6 +96,24 @@ const CreateProduct = () => {
     };
 
     fetchAllCategoriesAndSubcategories();
+  }, []);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [statuses, stock, types] = await Promise.all([
+          getProductStatuses(),
+          getStockStatuses(),
+          getTypes(),
+        ]);
+        setProductStatuses(statuses);
+        setStockStatuses(stock);
+        setProductTypes(types);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+    fetchData();
   }, []);
 
   const handleCategoryChange = (categoryId) => {
@@ -192,16 +219,19 @@ const CreateProduct = () => {
         purchasingPrice: parseFloat(form.purchasePrice),
         salePrice: parseFloat(form.salePrice),
         stockQuantity: parseInt(form.stockQty, 10),
-        stockStatus:
-          form.stockStatus === "instock" ? "in_stock" : "out_of_stock",
-        status: form.productStatus === "publish" ? "ACTIVE" : "DRAFT",
-        variant: form.productType === "variable",
-        attributes: attributes.reduce((m, attr) => {
-          m[attr.keyName] = attr.value.split(",");
-          return m;
-        }, {}),
+        stockStatus: form.stockStatus,
+        status: form.productStatus,
+        variant: form.productType,
+        attributes: attributes.map((attr) => ({
+          name: attr.keyName,
+          options: attr.value.split(",").map((v) => v.trim()),
+          position: parseInt(attr.position || 0),
+          visible: true,
+          variation: true,
+        })),
+
         dimensions: dimensionsObject,
-        productType: form.productType === "simple" ? "Simple" : "Variable",
+        productType: form.productType,
         productCategories: form.subCategories.map((id) => ({ id })),
         parentId: null,
       };
@@ -432,8 +462,11 @@ const CreateProduct = () => {
               required
             >
               <option value="">Choose...</option>
-              <option value="instock">In Stock</option>
-              <option value="outofstock">Out of Stock</option>
+              {stockStatuses.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -516,8 +549,11 @@ const CreateProduct = () => {
               required
             >
               <option value="">Choose...</option>
-              <option value="simple">Simple</option>
-              <option value="variable">Parent</option>
+              {productTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -534,11 +570,11 @@ const CreateProduct = () => {
               required
             >
               <option value="">Choose...</option>
-              <option value="draft">Draft</option>
-              <option value="pending">Pending</option>
-              <option value="publish">Publish</option>
-              <option value="future">Future</option>
-              <option value="trash">Trash</option>
+              {productStatuses.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
             </select>
           </div>
 
