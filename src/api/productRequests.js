@@ -89,7 +89,7 @@ export const updateProduct = async (payload, id) => {
       slug: payload.slug,
       purchasable: payload.purchasable,
       weight: payload.weight,
-      categories: payload.productCategories,
+      categories: payload.categories,
       meta_data: payload.meta_data,
       attributes: payload.attributes,
       purchasingPrice: payload.purchasingPrice,

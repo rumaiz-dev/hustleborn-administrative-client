@@ -213,8 +213,10 @@ const CreateProduct = () => {
       const payload = {
         name: form.name,
         description: form.description,
+        shortDescription: form.shortDesc,
         slug: form.slug,
         code: form.code,
+        sku:form.sku,
         price: parseFloat(form.regularPrice),
         purchasingPrice: parseFloat(form.purchasePrice),
         salePrice: parseFloat(form.salePrice),
@@ -232,7 +234,7 @@ const CreateProduct = () => {
 
         dimensions: dimensionsObject,
         productType: form.productType,
-        productCategories: form.subCategories.map((id) => ({ id })),
+        categories: [...new Set([...form.category, ...form.subCategories])].map((id) => ({ id })),
         parentId: null,
       };
 

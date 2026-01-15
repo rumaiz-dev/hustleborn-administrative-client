@@ -5,8 +5,6 @@ import { updateProduct, getProductById } from "../../api/productRequests";
 import RichTextField from "../../components/textEditor/RichText";
 import { CheckBox } from "../../components/multiselectcheckbox";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import { v4 as uuidv4 } from "uuid";
 import {
   CTable,
   CTableHead,
@@ -21,7 +19,6 @@ import {
 } from "@coreui/react";
 import { CIcon } from "@coreui/icons-react";
 import { cilOptions } from "@coreui/icons";
-import { S3_BASE_URL, S3_BASE_URL_WEBP } from "../../constants/consts";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { facebookCategories } from "../../constants/facebookCategories";
@@ -366,7 +363,7 @@ const EditProduct = () => {
         code: form.code,
         parentId: form.parentId,
         meta_category_tag: form.metaCategoryTag,
-        categories: form.subCategories.map((id) => ({ id })),
+        categories: [...new Set([...form.category, ...form.subCategories])].map((id) => ({ id })),
         attributes: attributes.map((attr, index) => ({
           id: attr.id,
           name: attr.keyName.trim(),
